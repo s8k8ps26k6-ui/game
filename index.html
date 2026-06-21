@@ -43,6 +43,14 @@
     </div>
   </div>
 
+  <script>
+    (() => {
+      const originalValues = Map.prototype.values;
+      Map.prototype.values = function valuesSnapshot() {
+        return Array.from(originalValues.call(this))[Symbol.iterator]();
+      };
+    })();
+  </script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>
