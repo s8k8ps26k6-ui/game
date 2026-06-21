@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>方块世界</title>
+</head>
+<body>
+  <div id="container">
+    <canvas id="c"></canvas>
+    <div id="crosshair"></div>
+
+    <div id="hud-top">
+      <div id="palette"></div>
+      <button id="resetBtn" type="button" aria-label="重置世界">🔄</button>
+    </div>
+
+    <div id="joystick-base"><div id="joystick-knob"></div></div>
+
+    <div id="action-buttons">
+      <button id="mineBtn" class="action-btn" type="button" aria-label="挖掘">⛏️</button>
+      <button id="placeBtn" class="action-btn" type="button" aria-label="放置">🧱</button>
+      <button id="jumpBtn" class="action-btn" type="button" aria-label="跳跃">⤴️</button>
+    </div>
+
+    <div id="info-overlay">
+      <h1>🧊 方块世界</h1>
+      <p>拖动屏幕：环顾四周</p>
+      <p>左下摇杆：走动</p>
+      <p>右下 ⛏ 挖掘 / 🧱 放置 / ⤴ 跳跃</p>
+      <p class="desktop-tip">电脑端：WASD 移动，空格跳跃，鼠标拖动视角。</p>
+      <button id="startBtn" type="button">开始游戏</button>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
