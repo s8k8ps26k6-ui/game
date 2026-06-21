@@ -11,9 +11,20 @@
     <div id="crosshair"></div>
 
     <div id="hud-top">
-      <div id="palette"></div>
-      <button id="resetBtn" type="button" aria-label="重置世界">🔄</button>
+      <div id="hud-left">
+        <div id="title-chip">🧊 方块世界</div>
+        <div id="debugText">加载中...</div>
+      </div>
+      <div id="hud-tools">
+        <button id="saveBtn" class="tool-btn" type="button" aria-label="保存世界">💾</button>
+        <button id="randomBtn" class="tool-btn" type="button" aria-label="随机刷新世界">🎲</button>
+        <button id="resetBtn" class="tool-btn" type="button" aria-label="回到出生点">🏠</button>
+      </div>
     </div>
+
+    <div id="center-toast"></div>
+
+    <div id="hotbar" aria-label="方块快捷栏"></div>
 
     <div id="joystick-base"><div id="joystick-knob"></div></div>
 
@@ -24,11 +35,10 @@
     </div>
 
     <div id="info-overlay">
-      <h1>🧊 方块世界</h1>
-      <p>拖动屏幕：环顾四周</p>
-      <p>左下摇杆：走动</p>
-      <p>右下 ⛏ 挖掘 / 🧱 放置 / ⤴ 跳跃</p>
-      <p class="desktop-tip">电脑端：WASD 移动，空格跳跃，鼠标拖动视角。</p>
+      <h1>🧊 方块世界 2.0</h1>
+      <p>更大的随机地图、区块加载、树、湖、矿石、云和昼夜光照。</p>
+      <p>手机端：拖动屏幕看四周，左下摇杆移动，右下挖掘 / 放置 / 跳跃。</p>
+      <p class="desktop-tip">电脑端：WASD 移动，Shift 加速，空格跳跃，鼠标拖动视角，数字键切方块，左键挖，右键放。</p>
       <button id="startBtn" type="button">开始游戏</button>
     </div>
   </div>
