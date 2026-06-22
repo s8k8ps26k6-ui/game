@@ -30,8 +30,8 @@ const BLOCKS = {
   water: { name: '水', color: 0x367ecb, solid: false, fluid: true, group: '自然' },
   wood: { name: '原木', color: 0x6b4423, solid: true, group: '植物' },
   birchWood: { name: '白桦木', color: 0xc7b68b, solid: true, group: '植物' },
-  leaves: { name: '树叶', color: 0x5cb83c, solid: true, group: '植物' },
-  pineLeaves: { name: '松叶', color: 0x2f7d54, solid: true, group: '植物' },
+  leaves: { name: '树叶', color: 0x5cb83c, solid: true, collisionSolid: false, group: '植物' },
+  pineLeaves: { name: '松叶', color: 0x2f7d54, solid: true, collisionSolid: false, group: '植物' },
   cactus: { name: '仙人掌', color: 0x3d9b4a, solid: true, group: '植物' },
   reeds: { name: '芦苇', color: 0x94b957, solid: false, plant: true, group: '植物' },
   tallgrass: { name: '草丛', color: 0x79b74a, solid: false, plant: true, group: '植物' },
@@ -524,6 +524,11 @@ function isSolidBlockAt(x, y, z) {
   const type = getBlockWorld(x, y, z);
   return Boolean(type && BLOCKS[type]?.solid);
 }
+function isCollidableBlockAt(x, y, z) {
+  const type = getBlockWorld(x, y, z);
+  const info = BLOCKS[type];
+  return Boolean(info?.solid && info.collisionSolid !== false);
+}
 function playerAabbAt(x = player.x, eyeY = player.y, z = player.z) {
   const feet = eyeY - EYE_HEIGHT;
   return {
@@ -551,7 +556,7 @@ function solidBlocksInAabb(aabb) {
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
       for (let z = minZ; z <= maxZ; z++) {
-        if (isSolidBlockAt(x, y, z)) blocks.push({ x, y, z });
+        if (isCollidableBlockAt(x, y, z)) blocks.push({ x, y, z });
       }
     }
   }
@@ -584,17 +589,25 @@ function movePlayerAxis(axis, delta) {
 function movePlayerVertical(delta) {
   if (delta === 0) return false;
   const epsilon = 0.0001;
+  const currentFeet = player.y - EYE_HEIGHT;
+  const currentHead = currentFeet + PLAYER_HEIGHT;
   const nextY = player.y + delta;
+  const nextFeet = nextY - EYE_HEIGHT;
+  const nextHead = nextFeet + PLAYER_HEIGHT;
   const aabb = playerAabbAt(player.x, nextY, player.z);
   const hits = solidBlocksInAabb(aabb);
   if (!hits.length) { player.y = nextY; player.onGround = false; return false; }
   if (delta > 0) {
-    const topLimit = Math.min(...hits.map((b) => b.y));
-    player.y = topLimit - PLAYER_HEIGHT + EYE_HEIGHT - epsilon;
+    const ceilings = hits.filter((b) => b.y >= currentHead - epsilon && b.y <= nextHead + epsilon);
+    if (!ceilings.length) { player.y = nextY; player.onGround = false; return false; }
+    const ceiling = Math.min(...ceilings.map((b) => b.y));
+    player.y = ceiling - PLAYER_HEIGHT + EYE_HEIGHT - epsilon;
     player.vy = 0;
     player.onGround = false;
   } else {
-    const ground = Math.max(...hits.map((b) => b.y + 1));
+    const landings = hits.filter((b) => b.y + 1 <= currentFeet + epsilon && b.y + 1 >= nextFeet - epsilon);
+    if (!landings.length) { player.y = nextY; player.onGround = false; return false; }
+    const ground = Math.max(...landings.map((b) => b.y + 1));
     player.y = ground + EYE_HEIGHT + epsilon;
     player.vy = 0;
     player.onGround = true;
@@ -605,7 +618,7 @@ function getTopSolidHeight(x, z) {
   const bx = Math.round(x);
   const bz = Math.round(z);
   for (let y = MAX_HEIGHT; y >= 0; y--) {
-    if (isSolidBlockAt(bx, y, bz)) return y + 1;
+    if (isCollidableBlockAt(bx, y, bz)) return y + 1;
   }
   return 0;
 }
