@@ -94,10 +94,11 @@
 
       function canCreateWebGLContext() {
         try {
-          if (!canvas || !window.WebGLRenderingContext) return false;
-          const context = canvas.getContext('webgl2', { failIfMajorPerformanceCaveat: false })
-            || canvas.getContext('webgl', { failIfMajorPerformanceCaveat: false })
-            || canvas.getContext('experimental-webgl', { failIfMajorPerformanceCaveat: false });
+          if (!window.WebGLRenderingContext) return false;
+          const testCanvas = document.createElement('canvas');
+          const context = testCanvas.getContext('webgl2', { failIfMajorPerformanceCaveat: false })
+            || testCanvas.getContext('webgl', { failIfMajorPerformanceCaveat: false })
+            || testCanvas.getContext('experimental-webgl', { failIfMajorPerformanceCaveat: false });
           return !!context;
         } catch (error) {
           paintFallbackOverlay('当前浏览器创建 WebGL 上下文失败。', formatError(error));
