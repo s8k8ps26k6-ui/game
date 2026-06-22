@@ -7,8 +7,9 @@ const MAX_VIEW_DISTANCE = 4;
 const MAX_HEIGHT = 42;
 const SEA_LEVEL = 7;
 const EYE_HEIGHT = 1.7;
-const PLAYER_RADIUS = 0.32;
-const STEP_HEIGHT = 1.08;
+const PLAYER_WIDTH = 0.6;
+const PLAYER_HALF_WIDTH = PLAYER_WIDTH / 2;
+const PLAYER_HEIGHT = 1.8;
 const MOVE_SPEED = 4.7;
 const SPRINT_MULTIPLIER = 1.55;
 const GRAVITY = 24;
@@ -457,9 +458,19 @@ function makeGeometry(buffers) {
   return geometry;
 }
 function newBuffers() { return { positions: [], normals: [], colors: [], blockPositions: [], indices: [] }; }
+function disposeMeshResource(mesh) {
+  if (!mesh) return;
+  worldGroup.remove(mesh);
+  mesh.geometry?.dispose();
+}
+function disposeChunkMeshes(chunk) {
+  disposeMeshResource(chunk.mesh);
+  disposeMeshResource(chunk.transparentMesh);
+  chunk.mesh = null;
+  chunk.transparentMesh = null;
+}
 function buildChunkMesh(chunk) {
-  if (chunk.mesh) { worldGroup.remove(chunk.mesh); chunk.mesh.geometry.dispose(); chunk.mesh = null; }
-  if (chunk.transparentMesh) { worldGroup.remove(chunk.transparentMesh); chunk.transparentMesh.geometry.dispose(); chunk.transparentMesh = null; }
+  disposeChunkMeshes(chunk);
   const solidBuffers = newBuffers();
   const transparentBuffers = newBuffers();
   appendMapToBuffers(chunk, chunk.solid, solidBuffers);
@@ -479,8 +490,7 @@ function buildChunkMesh(chunk) {
   chunk.dirty = false;
 }
 function disposeChunk(chunk) {
-  if (chunk.mesh) { worldGroup.remove(chunk.mesh); chunk.mesh.geometry.dispose(); }
-  if (chunk.transparentMesh) { worldGroup.remove(chunk.transparentMesh); chunk.transparentMesh.geometry.dispose(); }
+  disposeChunkMeshes(chunk);
 }
 
 let frameId = 0;
@@ -510,30 +520,104 @@ function updateVisibleChunks() {
   }
 }
 
+function isSolidBlockAt(x, y, z) {
+  const type = getBlockWorld(x, y, z);
+  return Boolean(type && BLOCKS[type]?.solid);
+}
+function playerAabbAt(x = player.x, eyeY = player.y, z = player.z) {
+  const feet = eyeY - EYE_HEIGHT;
+  return {
+    minX: x - PLAYER_HALF_WIDTH,
+    maxX: x + PLAYER_HALF_WIDTH,
+    minY: feet,
+    maxY: feet + PLAYER_HEIGHT,
+    minZ: z - PLAYER_HALF_WIDTH,
+    maxZ: z + PLAYER_HALF_WIDTH,
+  };
+}
+function blockIntersectsAabb(x, y, z, aabb) {
+  return x < aabb.maxX && x + 1 > aabb.minX
+    && y < aabb.maxY && y + 1 > aabb.minY
+    && z < aabb.maxZ && z + 1 > aabb.minZ;
+}
+function solidBlocksInAabb(aabb) {
+  const blocks = [];
+  const minX = Math.floor(aabb.minX);
+  const maxX = Math.floor(aabb.maxX - 0.0001);
+  const minY = Math.floor(aabb.minY);
+  const maxY = Math.floor(aabb.maxY - 0.0001);
+  const minZ = Math.floor(aabb.minZ);
+  const maxZ = Math.floor(aabb.maxZ - 0.0001);
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        if (isSolidBlockAt(x, y, z)) blocks.push({ x, y, z });
+      }
+    }
+  }
+  return blocks;
+}
+function isPlayerColliding(x = player.x, eyeY = player.y, z = player.z) {
+  return solidBlocksInAabb(playerAabbAt(x, eyeY, z)).length > 0;
+}
+function movePlayerAxis(axis, delta) {
+  if (delta === 0) return false;
+  const epsilon = 0.0001;
+  let nx = player.x;
+  let nz = player.z;
+  if (axis === 'x') nx += delta;
+  else nz += delta;
+  let aabb = playerAabbAt(nx, player.y, nz);
+  const hits = solidBlocksInAabb(aabb);
+  if (!hits.length) { player.x = nx; player.z = nz; return false; }
+  if (axis === 'x') {
+    if (delta > 0) nx = Math.min(...hits.map((b) => b.x)) - PLAYER_HALF_WIDTH - epsilon;
+    else nx = Math.max(...hits.map((b) => b.x + 1)) + PLAYER_HALF_WIDTH + epsilon;
+    if (!isPlayerColliding(nx, player.y, player.z)) player.x = nx;
+  } else {
+    if (delta > 0) nz = Math.min(...hits.map((b) => b.z)) - PLAYER_HALF_WIDTH - epsilon;
+    else nz = Math.max(...hits.map((b) => b.z + 1)) + PLAYER_HALF_WIDTH + epsilon;
+    if (!isPlayerColliding(player.x, player.y, nz)) player.z = nz;
+  }
+  return true;
+}
+function movePlayerVertical(delta) {
+  if (delta === 0) return false;
+  const epsilon = 0.0001;
+  const nextY = player.y + delta;
+  const aabb = playerAabbAt(player.x, nextY, player.z);
+  const hits = solidBlocksInAabb(aabb);
+  if (!hits.length) { player.y = nextY; player.onGround = false; return false; }
+  if (delta > 0) {
+    const topLimit = Math.min(...hits.map((b) => b.y));
+    player.y = topLimit - PLAYER_HEIGHT + EYE_HEIGHT - epsilon;
+    player.vy = 0;
+    player.onGround = false;
+  } else {
+    const ground = Math.max(...hits.map((b) => b.y + 1));
+    player.y = ground + EYE_HEIGHT + epsilon;
+    player.vy = 0;
+    player.onGround = true;
+  }
+  return true;
+}
 function getTopSolidHeight(x, z) {
   const bx = Math.round(x);
   const bz = Math.round(z);
   for (let y = MAX_HEIGHT; y >= 0; y--) {
-    const type = getBlockWorld(bx, y, bz);
-    if (type && BLOCKS[type]?.solid) return y + 1;
+    if (isSolidBlockAt(bx, y, bz)) return y + 1;
   }
   return 0;
 }
 function sampleGroundHeight(x, z) {
-  return Math.max(getTopSolidHeight(x - PLAYER_RADIUS, z - PLAYER_RADIUS), getTopSolidHeight(x + PLAYER_RADIUS, z - PLAYER_RADIUS), getTopSolidHeight(x - PLAYER_RADIUS, z + PLAYER_RADIUS), getTopSolidHeight(x + PLAYER_RADIUS, z + PLAYER_RADIUS));
+  return Math.max(getTopSolidHeight(x - PLAYER_HALF_WIDTH, z - PLAYER_HALF_WIDTH), getTopSolidHeight(x + PLAYER_HALF_WIDTH, z - PLAYER_HALF_WIDTH), getTopSolidHeight(x - PLAYER_HALF_WIDTH, z + PLAYER_HALF_WIDTH), getTopSolidHeight(x + PLAYER_HALF_WIDTH, z + PLAYER_HALF_WIDTH));
 }
 function isInWater() {
   const feetY = Math.floor(player.y - EYE_HEIGHT + 0.2);
-  return getBlockWorld(Math.round(player.x), feetY, Math.round(player.z)) === 'water';
+  return getBlockWorld(Math.floor(player.x), feetY, Math.floor(player.z)) === 'water';
 }
 function overlapsPlayer(x, y, z) {
-  const feet = player.y - EYE_HEIGHT;
-  const head = player.y + 0.12;
-  const closestX = Math.max(x, Math.min(player.x, x + 1));
-  const closestZ = Math.max(z, Math.min(player.z, z + 1));
-  const dx = player.x - closestX;
-  const dz = player.z - closestZ;
-  return dx * dx + dz * dz < PLAYER_RADIUS * PLAYER_RADIUS && y < head && y + 1 > feet;
+  return blockIntersectsAabb(x, y, z, playerAabbAt());
 }
 function resetPlayerToSpawn() {
   player.x = 0; player.z = 0; player.y = sampleGroundHeight(0, 0) + EYE_HEIGHT; player.vy = 0; player.onGround = true; showToast('已回到出生点');
@@ -688,12 +772,14 @@ function updatePlayer(dt) {
   const kb = getKeyboardMove(); let inputX = joyVec.x + kb.x; let inputY = joyVec.y + kb.y; const inputLen = Math.hypot(inputX, inputY); if (inputLen > 1) { inputX /= inputLen; inputY /= inputLen; }
   const forward = { x: -Math.sin(player.yaw), z: -Math.cos(player.yaw) }; const right = { x: Math.cos(player.yaw), z: -Math.sin(player.yaw) }; const inWater = isInWater(); const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') ? SPRINT_MULTIPLIER : 1; const speed = MOVE_SPEED * sprint * (inWater ? 0.58 : 1);
   let mx = forward.x * inputY + right.x * inputX; let mz = forward.z * inputY + right.z * inputX; const moveLen = Math.hypot(mx, mz); if (moveLen > 1) { mx /= moveLen; mz /= moveLen; }
-  const nx = player.x + mx * speed * dt; const nz = player.z + mz * speed * dt; const feet = player.y - EYE_HEIGHT; const nextGround = sampleGroundHeight(nx, nz); if (nextGround <= feet + STEP_HEIGHT || !player.onGround) { player.x = nx; player.z = nz; }
-  player.vy -= (inWater ? GRAVITY * 0.28 : GRAVITY) * dt; if (inWater && player.vy < -2.2) player.vy = -2.2; player.y += player.vy * dt;
-  const groundY = sampleGroundHeight(player.x, player.z) + EYE_HEIGHT; if (player.y <= groundY) { player.y = groundY; player.vy = 0; player.onGround = true; } else player.onGround = false;
+  movePlayerAxis('x', mx * speed * dt);
+  movePlayerAxis('z', mz * speed * dt);
+  player.vy -= (inWater ? GRAVITY * 0.28 : GRAVITY) * dt; if (inWater && player.vy < -2.2) player.vy = -2.2;
+  movePlayerVertical(player.vy * dt);
   if (player.y < -25) resetPlayerToSpawn();
   const moving = Math.abs(mx) + Math.abs(mz) > 0.05; const now = performance.now(); if (moving && player.onGround && now - lastFootstep > (inWater ? 520 : 380)) { lastFootstep = now; playTone(inWater ? 110 : 90, 0.025, 0.018); }
 }
+
 
 function makePart(parent, material, scale, position) { const m = new THREE.Mesh(boxGeo, material); m.scale.set(scale[0], scale[1], scale[2]); m.position.set(position[0], position[1], position[2]); parent.add(m); return m; }
 function createAnimalMesh(type) {

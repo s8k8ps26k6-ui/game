@@ -2,6 +2,29 @@
 
 这次更新目标是把原型小游戏升级成更接近体素沙盒的版本，重点放在地图规模、交互、视觉氛围、物品栏、天气、动植物和移动端可玩性。
 
+
+## 2026-06-22：模块 19 真实 AABB 玩家碰撞、模块 30 区块 GPU 资源清理
+
+本轮只处理两个底层稳定性模块，并保留 PR #1 的 Mobile WebGL startup guard 改动。
+
+### 已完成
+
+1. 玩家碰撞从地面高度采样改为真实 AABB：宽 0.6、高 1.8。
+2. 保持 `player.y` 作为眼睛高度坐标，并继续使用 `feet = player.y - EYE_HEIGHT`。
+3. 新增 `playerAabbAt`、`isPlayerColliding`、`movePlayerAxis`、`movePlayerVertical` 等碰撞辅助函数。
+4. `updatePlayer` 改为 X、Z、Y 分轴移动；水平碰撞会贴边修正，垂直碰撞会分别处理落地与头顶撞方块。
+5. 修复旧逻辑中可能出现的穿墙、穿地、斜向穿角、跳跃顶进方块问题。
+6. 保留键盘移动、手机摇杆、跳跃、水中减速和脚步声逻辑。
+7. 放置方块时继续使用玩家 AABB 禁止把方块放进玩家碰撞盒。
+8. 新增 `disposeMeshResource` / `disposeChunkMeshes`，统一清理区块 mesh 的几何体 GPU 资源。
+9. `buildChunkMesh` 重建前会先释放旧 mesh；`disposeChunk` 卸载时会移除 mesh、释放 geometry，并清空 `chunk.mesh` / `chunk.transparentMesh` 引用。
+10. 没有释放全局复用材质 `chunkMaterial` / `transparentMaterial`。
+
+### 测试说明
+
+- 已运行 `npm run build`，构建通过。
+- Vite 输出 chunk size warning，属于当前单文件 Three.js 游戏体积提示，不是构建错误。
+
 ## 2026-06-22：模块 20 移动端 WebGL 启动保护
 
 本轮优先处理需求 20，目标是避免移动端或内置浏览器在 WebGL 初始化失败时只显示空画面。
@@ -95,5 +118,5 @@
 - 加入生命值、饥饿值和伤害。
 - 加入更复杂的洞穴和地下结构。
 - 加入建筑蓝图、门、梯子、火把等交互方块。
-- 加入更细的移动碰撞，而不是目前的高度采样碰撞。
+- 继续补充更多自动化回归测试，覆盖碰撞边界和移动端设备差异。
 - 加入音效文件和背景音乐，而不是当前的简单 WebAudio 方波反馈。
