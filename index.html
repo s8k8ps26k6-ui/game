@@ -156,7 +156,10 @@
     const guard = window.__blockWorldEngineGuard;
     if (guard?.bootAllowed()) {
       import('./src/v3.js')
-        .then(() => import('./src/survival-loop.js').catch((error) => console.warn('Survival loop failed to load:', error)))
+        .then(() => Promise.all([
+          import('./src/survival-loop.js'),
+          import('./src/survival-hold-guard.js'),
+        ]).catch((error) => console.warn('Survival loop failed to load:', error)))
         .catch((error) => {
           guard.showFailure('Three.js / Vite 模块加载失败，已阻止黑屏。', error instanceof Error ? `${error.name}: ${error.message}` : String(error));
         });
