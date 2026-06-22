@@ -2,6 +2,32 @@
 
 这次更新目标是把原型小游戏升级成更接近体素沙盒的版本，重点放在地图规模、交互、视觉氛围、物品栏、天气、动植物和移动端可玩性。
 
+## 2026-06-22：模块 20 移动端 WebGL 启动保护
+
+本轮优先处理需求 20，目标是避免移动端或内置浏览器在 WebGL 初始化失败时只显示空画面。
+
+### 已完成
+
+1. `index.html` 继续使用 Vite 本地模块，没有引入 Three.js CDN。
+2. 新增 `window.__blockWorldEngineGuard` 启动守卫。
+3. 启动前使用测试 canvas 检测 WebGL / WebGL2 上下文，不污染真正的游戏 canvas。
+4. 将 `src/v3.js` 改为动态导入；模块加载失败、Three.js 初始化失败或 `WebGLRenderer` 创建阶段抛错时，会显示中文错误层。
+5. 增加 `error` 与 `unhandledrejection` 捕获，防止脚本异常后页面无反馈。
+6. 增加 `webglcontextlost` / `webglcontextrestored` 监听；上下文丢失时显示暂停提示，并提供重新加载按钮。
+7. 失败时会同步更新顶部 `debugText`，方便在手机上判断问题原因。
+
+### 测试说明
+
+- 已确认当前项目使用 `import * as THREE from 'three'`，属于 npm / Vite 本地依赖路径。
+- 当前执行环境无法联网安装依赖，因此本轮没有本地执行 `npm run build`。
+- 需要在 GitHub Pages 或本地开发服务器里继续测试 iPhone Safari、Chrome、切后台恢复和低性能设备场景。
+
+### 下一步
+
+- 需求 19：真实 AABB 玩家碰撞。
+- 需求 30：区块卸载时更严格清理 mesh 引用与 GPU 资源。
+- 可以在下一轮把 renderer 创建点进一步下沉到 `src/v3.js` 内部的显式 try/catch；本轮已经用动态 import 层捕获启动阶段异常。
+
 ## 已完成的 48 项优化
 
 1. 新增 `src/v3.js`，作为 3.0 主游戏引擎。
